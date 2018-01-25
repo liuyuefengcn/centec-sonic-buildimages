@@ -8,14 +8,6 @@
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
       <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-        <a:LoopbackIPInterface>
-          <Name>HostIP</Name>
-          <AttachTo>Loopback0</AttachTo>
-          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>10.1.0.32/32</b:IPPrefix>
-          </a:Prefix>
-          <a:PrefixStr>10.1.0.32/32</a:PrefixStr>
-        </a:LoopbackIPInterface>
       </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       </ManagementIPInterfaces>
