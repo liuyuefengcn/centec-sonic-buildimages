@@ -59,12 +59,10 @@ RUN apt-get update &&        \
 # for processing json files in bash environment
         jq
 
-{% if CONFIGURED_ARCH == "armhf" %}
-# ip and ifconfig utility missing in docker for armhf
+# ip and ifconfig utility missing in docker for arm arch
 RUN apt-get -y install       \
         iproute2             \
         net-tools
-{% endif %}
 
 # For templating
 RUN pip install j2cli
