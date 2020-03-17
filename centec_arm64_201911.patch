@@ -1,0 +1,111 @@
+diff --git a/files/build_templates/sonic_debian_extension.j2 b/files/build_templates/sonic_debian_extension.j2
+index 9967f0fe..a572bf28 100644
+--- a/files/build_templates/sonic_debian_extension.j2
++++ b/files/build_templates/sonic_debian_extension.j2
+@@ -236,14 +236,14 @@ sudo cp $IMAGE_CONFIGS/hostcfgd/hostcfgd $FILESYSTEM_ROOT/usr/bin/
+ sudo cp $IMAGE_CONFIGS/hostcfgd/*.j2 $FILESYSTEM_ROOT_USR_SHARE_SONIC_TEMPLATES/
+ 
+ # copy core file uploader files
+-sudo cp $IMAGE_CONFIGS/corefile_uploader/core_uploader.service $FILESYSTEM_ROOT/etc/systemd/system/
+-sudo LANG=C chroot $FILESYSTEM_ROOT systemctl disable core_uploader.service
+-sudo cp $IMAGE_CONFIGS/corefile_uploader/core_uploader.py $FILESYSTEM_ROOT/usr/bin/
+-sudo cp $IMAGE_CONFIGS/corefile_uploader/core_analyzer.rc.json $FILESYSTEM_ROOT_ETC_SONIC/
+-sudo chmod og-rw $FILESYSTEM_ROOT_ETC_SONIC/core_analyzer.rc.json
+-sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install azure-storage
+-sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install watchdog
+-sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install futures
++# sudo cp $IMAGE_CONFIGS/corefile_uploader/core_uploader.service $FILESYSTEM_ROOT/etc/systemd/system/
++# sudo LANG=C chroot $FILESYSTEM_ROOT systemctl disable core_uploader.service
++# sudo cp $IMAGE_CONFIGS/corefile_uploader/core_uploader.py $FILESYSTEM_ROOT/usr/bin/
++# sudo cp $IMAGE_CONFIGS/corefile_uploader/core_analyzer.rc.json $FILESYSTEM_ROOT_ETC_SONIC/
++# sudo chmod og-rw $FILESYSTEM_ROOT_ETC_SONIC/core_analyzer.rc.json
++# sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install azure-storage
++# sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install watchdog
++# sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip install futures
+ 
+ # Copy the buffer configuration template
+ sudo cp $BUILD_TEMPLATES/buffers_config.j2 $FILESYSTEM_ROOT_USR_SHARE_SONIC_TEMPLATES/
+diff --git a/files/image_config/platform/rc.local b/files/image_config/platform/rc.local
+index e36b2095..963bc63b 100755
+--- a/files/image_config/platform/rc.local
++++ b/files/image_config/platform/rc.local
+@@ -108,14 +108,16 @@ value_extract() {
+ 
+ program_console_speed()
+ {
+-    speed=$(cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d "," -f2)
++    # speed=$(cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d "," -f2)
++    speed=$(cat /proc/cmdline | grep -Eo 'console=tty[a-zA-Z]+[0-9]+,[0-9]+' | cut -d "," -f2)
+     if [ -z "$speed" ]; then
+         CONSOLE_SPEED=9600
+     else
+         CONSOLE_SPEED=$speed
+     fi
+ 
+-    sed -i "s|\-\-keep\-baud .* %I| $CONSOLE_SPEED %I|g" /lib/systemd/system/serial-getty@.service
++    # sed -i "s|\-\-keep\-baud .* %I| $CONSOLE_SPEED %I|g" /lib/systemd/system/serial-getty@.service
++    sed -i "s/9600/$CONSOLE_SPEED/g" /lib/systemd/system/serial-getty@.service
+     systemctl daemon-reload
+ }
+ 
+diff --git a/rules/config b/rules/config
+index 51429bff..596e3607 100644
+--- a/rules/config
++++ b/rules/config
+@@ -103,7 +103,7 @@ DEFAULT_VS_PREPARE_MEM = yes
+ ENABLE_SFLOW = y
+ 
+ # ENABLE_MGMT_FRAMEWORK - build docker-sonic-mgt-framework for CLI and REST server support
+-ENABLE_MGMT_FRAMEWORK = y
++ENABLE_MGMT_FRAMEWORK = n
+ 
+ # ENABLE_RESTAPI - build docker-sonic-restapi for configuring the switch using REST APIs
+ ENABLE_RESTAPI = n
+diff --git a/rules/iptables.mk b/rules/iptables.mk
+deleted file mode 100644
+index 4d88c0a2..00000000
+--- a/rules/iptables.mk
++++ /dev/null
+@@ -1,27 +0,0 @@
+-# iptables package
+-
+-IPTABLES_VERSION = 1.6.0+snapshot20161117
+-IPTABLES_VERSION_SUFFIX = 6
+-IPTABLES_VERSION_FULL = $(IPTABLES_VERSION)-$(IPTABLES_VERSION_SUFFIX)
+-
+-IPTABLES = iptables_$(IPTABLES_VERSION_FULL)_amd64.deb
+-$(IPTABLES)_SRC_PATH = $(SRC_PATH)/iptables
+-SONIC_MAKE_DEBS += $(IPTABLES)
+-SONIC_STRETCH_DEBS += $(IPTABLES)
+-
+-IPTABLESIP4TC = libip4tc0_$(IPTABLES_VERSION_FULL)_amd64.deb
+-$(eval $(call add_derived_package,$(IPTABLES),$(IPTABLESIP4TC)))
+-
+-IPTABLESIP6TC = libip6tc0_$(IPTABLES_VERSION_FULL)_amd64.deb
+-$(eval $(call add_derived_package,$(IPTABLES),$(IPTABLESIP6TC)))
+-
+-IPTABLESIPTC = libiptc0_$(IPTABLES_VERSION_FULL)_amd64.deb
+-$(eval $(call add_derived_package,$(IPTABLES),$(IPTABLESIPTC)))
+-
+-IPXTABLES12 = libxtables12_$(IPTABLES_VERSION_FULL)_amd64.deb
+-$(eval $(call add_derived_package,$(IPTABLES),$(IPXTABLES12)))
+-
+-# Export these variables so they can be used in a sub-make
+-export IPTABLES_VERSION
+-export IPTABLES_VERSION_FULL
+-export IPTABLES
+diff --git a/rules/restapi.mk b/rules/restapi.mk
+deleted file mode 100644
+index e66b4a1d..00000000
+--- a/rules/restapi.mk
++++ /dev/null
+@@ -1,9 +0,0 @@
+-# sonic-rest-api package
+-
+-RESTAPI = sonic-rest-api_1.0.1_amd64.deb
+-$(RESTAPI)_SRC_PATH = $(SRC_PATH)/sonic-restapi
+-$(RESTAPI)_DEPENDS += $(LIBHIREDIS_DEV) $(LIBNL3_DEV) $(LIBNL_GENL3_DEV) \
+-                            $(LIBNL_ROUTE3_DEV) $(LIBSWSSCOMMON_DEV) $(LIBSWSSCOMMON)
+-$(RESTAPI)_RDEPENDS += $(LIBHIREDIS) $(LIBNL3) $(LIBNL_GENL3) \
+-                             $(LIBNL_ROUTE3) $(LIBSWSSCOMMON)
+-SONIC_DPKG_DEBS += $(RESTAPI)
