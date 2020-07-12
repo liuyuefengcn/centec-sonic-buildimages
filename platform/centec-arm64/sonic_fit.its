@@ -25,11 +25,11 @@
 		};
 		initramfs {
 			description = "initramfs";
-			data = /incbin/("./initramfs.lzma");
+			data = /incbin/("./initrd.img-4.9.0-11-2-arm64");
 			type = "ramdisk";
 			arch = "arm64";
 			os = "linux";
-			compression = "lzma";
+			compression = "gzip";
 			load = <0x85000000>;
 			entry = <0x85000000>;
 			hash {				
