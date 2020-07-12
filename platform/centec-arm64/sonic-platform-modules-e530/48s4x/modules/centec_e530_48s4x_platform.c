@@ -33,13 +33,11 @@
 #define CTC_GPIO_BASE         496
 int xirq_gpio_0 = 0;
 int xirq_gpio_1 = 0;
-int xirq_gpio_6 = 0;  /* add for E530_48S4X EPLD INT0*/
-int xirq_gpio_7 = 0;  /* add for E530_48S4X EPLD INT1*/
 int xirq_gpio_15 = 0;
 #define IS_INVALID_PTR(_PTR_) ((_PTR_ == NULL) || IS_ERR(_PTR_))
 #define IS_VALID_PTR(_PTR_) (!IS_INVALID_PTR(_PTR_))
-#define SFP_NUM                 4
-#define PORT_NUM                (48+SFP_NUM)
+#define SFP_NUM                 52
+#define PORT_NUM                (SFP_NUM)
 #endif
 
 #if SEP("ctc:pinctl")
@@ -62,15 +60,14 @@ u8 ctc_gpio_direction_config(u8 gpio_pin, u8 dir,u8 default_out)
 
 static void ctc_pincrtl_init(void)
 {
-    /* configure mgmt-phy reset-pin output on product, mgmt-phy release must before this */
-    ctc_gpio_direction_config(4, 0, 1);
-    /* configure power-up pin output on product */
-    ctc_gpio_direction_config(6, 0, 0);
     /* configure phy interrupt pin input */
     ctc_gpio_direction_config(0, 1, 0);
-    ctc_gpio_direction_config(1, 1, 0);
-    /* configure phy reset-pin output, for release phy */
-    ctc_gpio_direction_config(5, 0, 1);
+
+    /* aura clock (not use),
+     * set output for disable phy interrupt,
+     * tmp code for phy in sdk bug.
+     */
+    ctc_gpio_direction_config(1, 0, 0);
 
     return;
 }
@@ -95,7 +92,7 @@ static void ctc_irq_init(void)
 #endif
 
 #if SEP("i2c:smbus")
-static int e530_48t4x_p_smbus_read_reg(struct i2c_client *client, unsigned char reg, unsigned char* value)
+static int e530_48s4x_smbus_read_reg(struct i2c_client *client, unsigned char reg, unsigned char* value)
 {
     int ret = 0;
 
@@ -119,7 +116,7 @@ static int e530_48t4x_p_smbus_read_reg(struct i2c_client *client, unsigned char 
     return 0;
 }
 
-static int e530_48t4x_p_smbus_write_reg(struct i2c_client *client, unsigned char reg, unsigned char value)
+static int e530_48s4x_smbus_write_reg(struct i2c_client *client, unsigned char reg, unsigned char value)
 {
     int ret = 0;
     
@@ -143,21 +140,21 @@ static int e530_48t4x_p_smbus_write_reg(struct i2c_client *client, unsigned char
 #if SEP("i2c:master")
 static struct i2c_adapter *i2c_adp_master          = NULL; /* i2c-1-cpu */
 
-static int e530_48t4x_p_init_i2c_master(void)
+static int e530_48s4x_init_i2c_master(void)
 {
     /* find i2c-core master */
     i2c_adp_master = i2c_get_adapter(0);
     if(IS_INVALID_PTR(i2c_adp_master))
     {
         i2c_adp_master = NULL;
-        printk(KERN_CRIT "e530_48t4x_p_init_i2c_master can't find i2c-core bus\n");
+        printk(KERN_CRIT "e530_48s4x_init_i2c_master can't find i2c-core bus\n");
         return -1;
     }
     
     return 0;
 }
 
-static int e530_48t4x_p_exit_i2c_master(void)
+static int e530_48s4x_exit_i2c_master(void)
 {
     /* uninstall i2c-core master */
     if(IS_VALID_PTR(i2c_adp_master)) {
@@ -169,21 +166,26 @@ static int e530_48t4x_p_exit_i2c_master(void)
 }
 #endif
 
-//TODO!!!
 #if SEP("i2c:gpio")
 static struct i2c_adapter *i2c_adp_gpio0           = NULL; /* gpio0 */
 static struct i2c_board_info i2c_dev_gpio0 = {
-    I2C_BOARD_INFO("i2c-gpio0", 0x22),
+    I2C_BOARD_INFO("i2c-gpio0", 0x21),
 };
 static struct i2c_client  *i2c_client_gpio0      = NULL;
 
-static int e530_48t4x_p_init_i2c_gpio(void)
+static struct i2c_adapter *i2c_adp_gpio1           = NULL; /* gpio1 */
+static struct i2c_board_info i2c_dev_gpio1 = {
+    I2C_BOARD_INFO("i2c-gpio1", 0x22),
+};
+static struct i2c_client  *i2c_client_gpio1      = NULL;
+
+static int e530_48s4x_init_i2c_gpio(void)
 {
     int ret = 0;
 
     if (IS_INVALID_PTR(i2c_adp_master))
     {
-         printk(KERN_CRIT "e530_48t4x_p_init_i2c_gpio can't find i2c-core bus\n");
+         printk(KERN_CRIT "e530_48s4x_init_i2c_gpio can't find i2c-core bus\n");
          return -1;
     }
 
@@ -191,7 +193,7 @@ static int e530_48t4x_p_init_i2c_gpio(void)
     if(IS_INVALID_PTR(i2c_adp_gpio0))
     {
         i2c_adp_gpio0 = NULL;
-        printk(KERN_CRIT "get e530_48t4x_p gpio0 i2c-adp failed\n");
+        printk(KERN_CRIT "get e530_48s4x gpio0 i2c-adp failed\n");
         return -1;
     }
 
@@ -199,27 +201,36 @@ static int e530_48t4x_p_init_i2c_gpio(void)
     if(IS_INVALID_PTR(i2c_client_gpio0))
     {
         i2c_client_gpio0 = NULL;
-        printk(KERN_CRIT "create e530_48t4x_p board i2c client gpio0 failed\n");
+        printk(KERN_CRIT "create e530_48s4x board i2c client gpio0 failed\n");
         return -1;
     }
 
-    /* gpio0 */
-    /* tx enable and release mac led and close indicate led */
-    ret  = e530_48t4x_p_smbus_write_reg(i2c_client_gpio0, 0x02, 0xf0);
-    /* bank 0 : output bank 1 : input */
-    ret += e530_48t4x_p_smbus_write_reg(i2c_client_gpio0, 0x06, 0x00);
-    ret += e530_48t4x_p_smbus_write_reg(i2c_client_gpio0, 0x07, 0xff);
+    i2c_adp_gpio1 = i2c_get_adapter(0);
+    if(IS_INVALID_PTR(i2c_adp_gpio1))
+    {
+        i2c_adp_gpio1 = NULL;
+        printk(KERN_CRIT "get e530_48s4x gpio1 i2c-adp failed\n");
+        return -1;
+    }
+
+    i2c_client_gpio1 = i2c_new_device(i2c_adp_gpio1, &i2c_dev_gpio1);
+    if(IS_INVALID_PTR(i2c_client_gpio1))
+    {
+        i2c_client_gpio1 = NULL;
+        printk(KERN_CRIT "create e530_48s4x board i2c client gpio1 failed\n");
+        return -1;
+    }
 
     if (ret)
     {
-        printk(KERN_CRIT "init e530_48t4x_p board i2c gpio config failed\n");
+        printk(KERN_CRIT "init e530_48s4x board i2c gpio config failed\n");
         return -1;
     }
 
     return 0;
 }
 
-static int e530_48t4x_p_exit_i2c_gpio(void)
+static int e530_48s4x_exit_i2c_gpio(void)
 {
     if(IS_VALID_PTR(i2c_client_gpio0)) {
         i2c_unregister_device(i2c_client_gpio0);
@@ -232,17 +243,81 @@ static int e530_48t4x_p_exit_i2c_gpio(void)
         i2c_adp_gpio0 = NULL;
     }
 
+    if(IS_VALID_PTR(i2c_client_gpio1)) {
+        i2c_unregister_device(i2c_client_gpio1);
+        i2c_client_gpio1 = NULL;
+    }
+
+    if(IS_VALID_PTR(i2c_adp_gpio1)) 
+    {
+        i2c_put_adapter(i2c_adp_gpio1);
+        i2c_adp_gpio1 = NULL;
+    }
+
     return 0;
 }
 #endif
 
+#if SEP("i2c:epld")
+static struct i2c_board_info i2c_dev_epld = {
+    I2C_BOARD_INFO("i2c-epld", 0x36),
+};
+static struct i2c_client  *i2c_client_epld      = NULL;
+
+static int e530_48s4x_init_i2c_epld(void)
+{
+    int ret = 0;
+
+    if (IS_INVALID_PTR(i2c_adp_master))
+    {
+         printk(KERN_CRIT "e530_48s4x_init_i2c_epld can't find i2c-core bus\n");
+         return -1;
+    }
+    
+    i2c_client_epld = i2c_new_device(i2c_adp_master, &i2c_dev_epld);
+    if(IS_INVALID_PTR(i2c_client_epld))
+    {
+        i2c_client_epld = NULL;
+        printk(KERN_CRIT "create e530_48s4x board i2c client epld failed\n");
+        return -1;
+    }
+
+    /* release asic i2c bridge */
+    ret  = e530_48s4x_smbus_write_reg(i2c_client_epld, 0x05, 0xff);
+    /* release phy */
+    ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x07, 0xff);
+    /* unmask phy interrupt */
+    ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x0b, 0x00);
+
+    /* set sfp tx enable */
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x0e, 0x00);
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x0f, 0x00);
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x10, 0x00);
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x11, 0x00);
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x12, 0x00);
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x13, 0x00);
+    //ret += e530_48s4x_smbus_write_reg(i2c_client_epld, 0x14, 0x00);
+    
+    return ret;
+}
+
+static int e530_48s4x_exit_i2c_epld(void)
+{
+    if(IS_VALID_PTR(i2c_client_epld)) {
+        i2c_unregister_device(i2c_client_epld);
+        i2c_client_epld = NULL;
+    }
+    
+    return 0;
+}
+#endif
 
 #if SEP("drivers:psu")
 static struct class* psu_class = NULL;
 static struct device* psu_dev_psu1 = NULL;
 static struct device* psu_dev_psu2 = NULL;
 
-static ssize_t e530_48t4x_p_psu_read_presence(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t e530_48s4x_psu_read_presence(struct device *dev, struct device_attribute *attr, char *buf)
 {
     int ret = 0;
     unsigned char present_no = 0;
@@ -252,13 +327,13 @@ static ssize_t e530_48t4x_p_psu_read_presence(struct device *dev, struct device_
 
     if (psu_dev_psu1 == dev)
     {
-        i2c_psu_client = i2c_client_gpio0;
-        present_no = 9;
+        i2c_psu_client = i2c_client_epld;
+        present_no = 0x1e * 8 + 2;
     }
     else if (psu_dev_psu2 == dev)
     {
-        i2c_psu_client = i2c_client_gpio0;
-        present_no = 13;
+        i2c_psu_client = i2c_client_epld;
+        present_no = 0x1e * 8 + 3;
     }
     else
     {
@@ -270,7 +345,7 @@ static ssize_t e530_48t4x_p_psu_read_presence(struct device *dev, struct device_
         return sprintf(buf, "Error: psu i2c-adapter invalid\n");
     }
 
-    ret = e530_48t4x_p_smbus_read_reg(i2c_psu_client, present_no/8, &present);
+    ret = e530_48s4x_smbus_read_reg(i2c_psu_client, present_no/8, &present);
     if (ret != 0)
     {
         return sprintf(buf, "Error: read psu data:%s failed\n", attr->attr.name);
@@ -281,7 +356,7 @@ static ssize_t e530_48t4x_p_psu_read_presence(struct device *dev, struct device_
     return sprintf(buf, "%d\n", value);
 }
 
-static ssize_t e530_48t4x_p_psu_read_status(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t e530_48s4x_psu_read_status(struct device *dev, struct device_attribute *attr, char *buf)
 {
     int ret = 0;
     unsigned char workstate_no = 0;
@@ -291,13 +366,13 @@ static ssize_t e530_48t4x_p_psu_read_status(struct device *dev, struct device_at
 
     if (psu_dev_psu1 == dev)
     {
-        i2c_psu_client = i2c_client_gpio0;
-        workstate_no = 11;
+        i2c_psu_client = i2c_client_epld;
+        workstate_no = 0x1e * 8 + 4;
     }
     else if (psu_dev_psu2 == dev)
     {
-        i2c_psu_client = i2c_client_gpio0;
-        workstate_no = 15;
+        i2c_psu_client = i2c_client_epld;
+        workstate_no = 0x1e * 8 + 5;
     }
     else
     {
@@ -309,7 +384,7 @@ static ssize_t e530_48t4x_p_psu_read_status(struct device *dev, struct device_at
         return sprintf(buf, "Error: psu i2c-adapter invalid\n");
     }
 
-    ret = e530_48t4x_p_smbus_read_reg(i2c_psu_client, workstate_no/8, &workstate);
+    ret = e530_48s4x_smbus_read_reg(i2c_psu_client, workstate_no/8, &workstate);
     if (ret != 0)
     {
         return sprintf(buf, "Error: read psu data:%s failed\n", attr->attr.name);
@@ -320,10 +395,10 @@ static ssize_t e530_48t4x_p_psu_read_status(struct device *dev, struct device_at
     return sprintf(buf, "%d\n", value);
 }
 
-static DEVICE_ATTR(psu_presence, S_IRUGO, e530_48t4x_p_psu_read_presence, NULL);
-static DEVICE_ATTR(psu_status, S_IRUGO, e530_48t4x_p_psu_read_status, NULL);
+static DEVICE_ATTR(psu_presence, S_IRUGO, e530_48s4x_psu_read_presence, NULL);
+static DEVICE_ATTR(psu_status, S_IRUGO, e530_48s4x_psu_read_status, NULL);
 
-static int e530_48t4x_p_init_psu(void)
+static int e530_48s4x_init_psu(void)
 {
     int ret = 0;
     
@@ -331,7 +406,7 @@ static int e530_48t4x_p_init_psu(void)
     if (IS_INVALID_PTR(psu_class))
     {
         psu_class = NULL;
-        printk(KERN_CRIT "create e530_48t4x_p class psu failed\n");
+        printk(KERN_CRIT "create e530_48s4x class psu failed\n");
         return -1;
     }
 
@@ -339,7 +414,7 @@ static int e530_48t4x_p_init_psu(void)
     if (IS_INVALID_PTR(psu_dev_psu1))
     {
         psu_dev_psu1 = NULL;
-        printk(KERN_CRIT "create e530_48t4x_p psu1 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x psu1 device failed\n");
         return -1;
     }
 
@@ -347,42 +422,42 @@ static int e530_48t4x_p_init_psu(void)
     if (IS_INVALID_PTR(psu_dev_psu2))
     {
         psu_dev_psu2 = NULL;
-        printk(KERN_CRIT "create e530_48t4x_p psu2 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x psu2 device failed\n");
         return -1;
     }
 
     ret = device_create_file(psu_dev_psu1, &dev_attr_psu_presence);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p psu1 device attr:presence failed\n");
+        printk(KERN_CRIT "create e530_48s4x psu1 device attr:presence failed\n");
         return -1;
     }
 
     ret = device_create_file(psu_dev_psu1, &dev_attr_psu_status);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p psu1 device attr:status failed\n");
+        printk(KERN_CRIT "create e530_48s4x psu1 device attr:status failed\n");
         return -1;
     }
 
     ret = device_create_file(psu_dev_psu2, &dev_attr_psu_presence);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p psu2 device attr:presence failed\n");
+        printk(KERN_CRIT "create e530_48s4x psu2 device attr:presence failed\n");
         return -1;
     }
 
     ret = device_create_file(psu_dev_psu2, &dev_attr_psu_status);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p psu2 device attr:status failed\n");
+        printk(KERN_CRIT "create e530_48s4x psu2 device attr:status failed\n");
         return -1;
     }
     
     return 0;
 }
 
-static int e530_48t4x_p_exit_psu(void)
+static int e530_48s4x_exit_psu(void)
 {
     if (IS_VALID_PTR(psu_dev_psu1))
     {
@@ -409,127 +484,127 @@ static int e530_48t4x_p_exit_psu(void)
 #endif
 
 #if SEP("drivers:leds")
-extern void e530_48t4x_p_led_set(struct led_classdev *led_cdev, enum led_brightness set_value);
-extern enum led_brightness e530_48t4x_p_led_get(struct led_classdev *led_cdev);
-extern void e530_48t4x_p_led_port_set(struct led_classdev *led_cdev, enum led_brightness set_value);
-extern enum led_brightness e530_48t4x_p_led_port_get(struct led_classdev *led_cdev);
+extern void e530_48s4x_led_set(struct led_classdev *led_cdev, enum led_brightness set_value);
+extern enum led_brightness e530_48s4x_led_get(struct led_classdev *led_cdev);
+extern void e530_48s4x_led_port_set(struct led_classdev *led_cdev, enum led_brightness set_value);
+extern enum led_brightness e530_48s4x_led_port_get(struct led_classdev *led_cdev);
 
 static struct led_classdev led_dev_system = {
     .name = "system",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_idn = {
     .name = "idn",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_fan1 = {
     .name = "fan1",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_fan2 = {
     .name = "fan2",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_fan3 = {
     .name = "fan3",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_fan4 = {
     .name = "fan4",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_psu1 = {
     .name = "psu1",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_psu2 = {
     .name = "psu2",
-    .brightness_set = e530_48t4x_p_led_set,
-    .brightness_get = e530_48t4x_p_led_get,
+    .brightness_set = e530_48s4x_led_set,
+    .brightness_get = e530_48s4x_led_get,
 };
 static struct led_classdev led_dev_port[PORT_NUM] = {
-{   .name = "port1",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port2",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port3",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port4",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port5",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port6",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port7",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port8",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port9",     .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port10",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port11",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port12",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port13",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port14",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port15",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port16",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port17",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port18",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port19",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port20",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port21",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port22",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port23",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port24",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port25",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port26",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port27",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port28",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port29",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port30",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port31",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port32",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port33",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port34",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port35",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port36",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port37",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port38",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port39",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port40",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port41",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port42",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port43",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port44",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port45",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port46",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port47",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port48",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port49",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port50",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port51",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
-{   .name = "port52",    .brightness_set = e530_48t4x_p_led_port_set,    .brightness_get = e530_48t4x_p_led_port_get,},
+{   .name = "port1",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port2",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port3",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port4",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port5",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port6",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port7",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port8",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port9",     .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port10",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port11",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port12",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port13",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port14",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port15",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port16",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port17",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port18",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port19",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port20",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port21",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port22",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port23",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port24",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port25",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port26",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port27",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port28",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port29",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port30",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port31",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port32",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port33",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port34",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port35",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port36",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port37",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port38",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port39",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port40",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port41",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port42",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port43",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port44",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port45",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port46",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port47",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port48",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port49",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port50",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port51",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
+{   .name = "port52",    .brightness_set = e530_48s4x_led_port_set,    .brightness_get = e530_48s4x_led_port_get,},
 };
 static unsigned char port_led_mode[PORT_NUM] = {0};
 
-void e530_48t4x_p_led_set(struct led_classdev *led_cdev, enum led_brightness set_value)
+void e530_48s4x_led_set(struct led_classdev *led_cdev, enum led_brightness set_value)
 {
     int ret = 0;
     unsigned char reg = 0;
     unsigned char mask = 0;
     unsigned char shift = 0;
     unsigned char led_value = 0;
-    struct i2c_client *i2c_led_client = i2c_client_gpio0;
+    struct i2c_client *i2c_led_client = i2c_client_epld;
 
     if (0 == strcmp(led_dev_system.name, led_cdev->name))
     {
         reg = 0x2;
-        mask = 0x60;
-        shift = 5;
+        mask = 0x0f;
+        shift = 0;
     }
     else if (0 == strcmp(led_dev_idn.name, led_cdev->name))
     {
-        reg = 0x2;
-        mask = 0x10;
-        shift = 4;
+        reg = 0x3;
+        mask = 0x01;
+        shift = 0;
     }
     else if (0 == strcmp(led_dev_fan1.name, led_cdev->name))
     {
@@ -560,7 +635,7 @@ void e530_48t4x_p_led_set(struct led_classdev *led_cdev, enum led_brightness set
         goto not_support;
     }
 
-    ret = e530_48t4x_p_smbus_read_reg(i2c_led_client, reg, &led_value);
+    ret = e530_48s4x_smbus_read_reg(i2c_led_client, reg, &led_value);
     if (ret != 0)
     {
         printk(KERN_CRIT "Error: read %s led attr failed\n", led_cdev->name);
@@ -569,7 +644,7 @@ void e530_48t4x_p_led_set(struct led_classdev *led_cdev, enum led_brightness set
 
     led_value = ((led_value & (~mask)) | ((set_value << shift) & (mask)));
     
-    ret = e530_48t4x_p_smbus_write_reg(i2c_led_client, reg, led_value);
+    ret = e530_48s4x_smbus_write_reg(i2c_led_client, reg, led_value);
     if (ret != 0)
     {
         printk(KERN_CRIT "Error: write %s led attr failed\n", led_cdev->name);
@@ -584,26 +659,26 @@ not_support:
     return;
 }
 
-enum led_brightness e530_48t4x_p_led_get(struct led_classdev *led_cdev)
+enum led_brightness e530_48s4x_led_get(struct led_classdev *led_cdev)
 {
     int ret = 0;
     unsigned char reg = 0;
     unsigned char mask = 0;
     unsigned char shift = 0;
     unsigned char led_value = 0;
-    struct i2c_client *i2c_led_client = i2c_client_gpio0;
+    struct i2c_client *i2c_led_client = i2c_client_epld;
 
     if (0 == strcmp(led_dev_system.name, led_cdev->name))
     {
         reg = 0x2;
-        mask = 0x60;
-        shift = 5;
+        mask = 0x0f;
+        shift = 0;
     }
     else if (0 == strcmp(led_dev_idn.name, led_cdev->name))
     {
-        reg = 0x2;
-        mask = 0x10;
-        shift = 4;
+        reg = 0x3;
+        mask = 0x01;
+        shift = 1;
     }
     else if (0 == strcmp(led_dev_fan1.name, led_cdev->name))
     {
@@ -634,7 +709,7 @@ enum led_brightness e530_48t4x_p_led_get(struct led_classdev *led_cdev)
         goto not_support;
     }
 
-    ret = e530_48t4x_p_smbus_read_reg(i2c_led_client, reg, &led_value);
+    ret = e530_48s4x_smbus_read_reg(i2c_led_client, reg, &led_value);
     if (ret != 0)
     {
         printk(KERN_CRIT "Error: read %s led attr failed\n", led_cdev->name);
@@ -651,7 +726,7 @@ not_support:
     return 0;
 }
 
-void e530_48t4x_p_led_port_set(struct led_classdev *led_cdev, enum led_brightness set_value)
+void e530_48s4x_led_port_set(struct led_classdev *led_cdev, enum led_brightness set_value)
 {
     int portNum = 0;
     
@@ -662,7 +737,7 @@ void e530_48t4x_p_led_port_set(struct led_classdev *led_cdev, enum led_brightnes
     return;
 }
 
-enum led_brightness e530_48t4x_p_led_port_get(struct led_classdev *led_cdev)
+enum led_brightness e530_48s4x_led_port_get(struct led_classdev *led_cdev)
 {
     int portNum = 0;
     
@@ -671,7 +746,7 @@ enum led_brightness e530_48t4x_p_led_port_get(struct led_classdev *led_cdev)
     return port_led_mode[portNum-1];
 }
 
-static int e530_48t4x_p_init_led(void)
+static int e530_48s4x_init_led(void)
 {
     int ret = 0;
     int i = 0;
@@ -679,56 +754,56 @@ static int e530_48t4x_p_init_led(void)
     ret = led_classdev_register(NULL, &led_dev_system);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_system device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_system device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_idn);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_idn device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_idn device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_fan1);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_fan1 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_fan1 device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_fan2);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_fan2 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_fan2 device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_fan3);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_fan3 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_fan3 device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_fan4);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_fan4 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_fan4 device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_psu1);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_psu1 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_psu1 device failed\n");
         return -1;
     }
 
     ret = led_classdev_register(NULL, &led_dev_psu2);
     if (ret != 0)
     {
-        printk(KERN_CRIT "create e530_48t4x_p led_dev_psu2 device failed\n");
+        printk(KERN_CRIT "create e530_48s4x led_dev_psu2 device failed\n");
         return -1;
     }
 
@@ -737,7 +812,7 @@ static int e530_48t4x_p_init_led(void)
         ret = led_classdev_register(NULL, &(led_dev_port[i]));
         if (ret != 0)
         {
-            printk(KERN_CRIT "create e530_48t4x_p led_dev_port%d device failed\n", i);
+            printk(KERN_CRIT "create e530_48s4x led_dev_port%d device failed\n", i);
             continue;
         }
     }
@@ -745,7 +820,7 @@ static int e530_48t4x_p_init_led(void)
     return ret;
 }
 
-static int e530_48t4x_p_exit_led(void)
+static int e530_48s4x_exit_led(void)
 {
     int i = 0;
 
@@ -779,7 +854,7 @@ static struct class* sfp_class = NULL;
 static struct device* sfp_dev[SFP_NUM+1] = {NULL};
 static struct sfp_info_t sfp_info[SFP_NUM+1];
 
-static ssize_t e530_48t4x_p_sfp_read_presence(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t e530_48s4x_sfp_read_presence(struct device *dev, struct device_attribute *attr, char *buf)
 {
     int portNum = 0;
     const char *name = dev_name(dev);
@@ -801,7 +876,7 @@ static ssize_t e530_48t4x_p_sfp_read_presence(struct device *dev, struct device_
     return sprintf(buf, "%d\n", presence);
 }
 
-static ssize_t e530_48t4x_p_sfp_write_presence(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t e530_48s4x_sfp_write_presence(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     int portNum = 0;
     const char *name = dev_name(dev);
@@ -823,7 +898,7 @@ static ssize_t e530_48t4x_p_sfp_write_presence(struct device *dev, struct device
     return size;
 }
 
-static ssize_t e530_48t4x_p_sfp_read_enable(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t e530_48s4x_sfp_read_enable(struct device *dev, struct device_attribute *attr, char *buf)
 {
     int ret = 0;
     unsigned char value = 0;
@@ -842,10 +917,10 @@ static ssize_t e530_48t4x_p_sfp_read_enable(struct device *dev, struct device_at
     }
 
     reg_no = portNum - 1;
-    i2c_sfp_client = i2c_client_gpio0;
+    i2c_sfp_client = i2c_client_epld;
 
-    input_bank = (reg_no/8) + 0x2;
-    ret = e530_48t4x_p_smbus_read_reg(i2c_sfp_client, input_bank, &value);
+    input_bank = (reg_no/8) + 0xe;
+    ret = e530_48s4x_smbus_read_reg(i2c_sfp_client, input_bank, &value);
     if (ret != 0)
     {
         return sprintf(buf, "Error: read sfp enable: %s failed\n", attr->attr.name);
@@ -856,7 +931,7 @@ static ssize_t e530_48t4x_p_sfp_read_enable(struct device *dev, struct device_at
     return sprintf(buf, "%d\n", value);
 }
 
-static ssize_t e530_48t4x_p_sfp_write_enable(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t e530_48s4x_sfp_write_enable(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     int ret = 0;
     unsigned char value = 0;
@@ -877,12 +952,12 @@ static ssize_t e530_48t4x_p_sfp_write_enable(struct device *dev, struct device_a
     }
 
     reg_no = portNum - 1;
-    i2c_sfp_client = i2c_client_gpio0;
+    i2c_sfp_client = i2c_client_epld;
 
     set_value = ((set_value > 0) ? 0 : 1);
 
-    input_bank = (reg_no/8) + 0x2;
-    ret = e530_48t4x_p_smbus_read_reg(i2c_sfp_client, input_bank, &value);
+    input_bank = (reg_no/8) + 0xe;
+    ret = e530_48s4x_smbus_read_reg(i2c_sfp_client, input_bank, &value);
     if (ret != 0)
     {
         printk(KERN_CRIT "Error: read %s enable failed\n", name);
@@ -898,8 +973,8 @@ static ssize_t e530_48t4x_p_sfp_write_enable(struct device *dev, struct device_a
         value = (value & (~(1<<(reg_no % 8))));
     }
     
-    output_bank = (reg_no/8) + 0x2;
-    ret = e530_48t4x_p_smbus_write_reg(i2c_sfp_client, output_bank, value);
+    output_bank = (reg_no/8) + 0xe;
+    ret = e530_48s4x_smbus_write_reg(i2c_sfp_client, output_bank, value);
     if (ret != 0)
     {
         printk(KERN_CRIT "Error: write %s enable failed\n", name);
@@ -909,7 +984,7 @@ static ssize_t e530_48t4x_p_sfp_write_enable(struct device *dev, struct device_a
     return size;
 }
 
-static ssize_t e530_48t4x_p_sfp_read_eeprom(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t e530_48s4x_sfp_read_eeprom(struct device *dev, struct device_attribute *attr, char *buf)
 {
     int portNum = 0;
     const char *name = dev_name(dev);
@@ -933,7 +1008,7 @@ static ssize_t e530_48t4x_p_sfp_read_eeprom(struct device *dev, struct device_at
     return size;
 }
 
-static ssize_t e530_48t4x_p_sfp_write_eeprom(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t e530_48s4x_sfp_write_eeprom(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     int portNum = 0;
     const char *name = dev_name(dev);
@@ -955,10 +1030,10 @@ static ssize_t e530_48t4x_p_sfp_write_eeprom(struct device *dev, struct device_a
     return size;
 }
 
-static DEVICE_ATTR(sfp_presence, S_IRUGO|S_IWUSR, e530_48t4x_p_sfp_read_presence, e530_48t4x_p_sfp_write_presence);
-static DEVICE_ATTR(sfp_enable, S_IRUGO|S_IWUSR, e530_48t4x_p_sfp_read_enable, e530_48t4x_p_sfp_write_enable);
-static DEVICE_ATTR(sfp_eeprom, S_IRUGO|S_IWUSR, e530_48t4x_p_sfp_read_eeprom, e530_48t4x_p_sfp_write_eeprom);
-static int e530_48t4x_p_init_sfp(void)
+static DEVICE_ATTR(sfp_presence, S_IRUGO|S_IWUSR, e530_48s4x_sfp_read_presence, e530_48s4x_sfp_write_presence);
+static DEVICE_ATTR(sfp_enable, S_IRUGO|S_IWUSR, e530_48s4x_sfp_read_enable, e530_48s4x_sfp_write_enable);
+static DEVICE_ATTR(sfp_eeprom, S_IRUGO|S_IWUSR, e530_48s4x_sfp_read_eeprom, e530_48s4x_sfp_write_eeprom);
+static int e530_48s4x_init_sfp(void)
 {
     int ret = 0;
     int i = 0;
@@ -967,7 +1042,7 @@ static int e530_48t4x_p_init_sfp(void)
     if (IS_INVALID_PTR(sfp_class))
     {
         sfp_class = NULL;
-        printk(KERN_CRIT "create e530_48t4x_p class sfp failed\n");
+        printk(KERN_CRIT "create e530_48s4x class sfp failed\n");
         return -1;
     }
 
@@ -981,28 +1056,28 @@ static int e530_48t4x_p_init_sfp(void)
         if (IS_INVALID_PTR(sfp_dev[i]))
         {
             sfp_dev[i] = NULL;
-            printk(KERN_CRIT "create e530_48t4x_p sfp[%d] device failed\n", i);
+            printk(KERN_CRIT "create e530_48s4x sfp[%d] device failed\n", i);
             continue;
         }
 
         ret = device_create_file(sfp_dev[i], &dev_attr_sfp_presence);
         if (ret != 0)
         {
-            printk(KERN_CRIT "create e530_48t4x_p sfp[%d] device attr:presence failed\n", i);
+            printk(KERN_CRIT "create e530_48s4x sfp[%d] device attr:presence failed\n", i);
             continue;
         }
 
         ret = device_create_file(sfp_dev[i], &dev_attr_sfp_enable);
         if (ret != 0)
         {
-            printk(KERN_CRIT "create e530_48t4x_p sfp[%d] device attr:enable failed\n", i);
+            printk(KERN_CRIT "create e530_48s4x sfp[%d] device attr:enable failed\n", i);
             continue;
         }
 
         ret = device_create_file(sfp_dev[i], &dev_attr_sfp_eeprom);
         if (ret != 0)
         {
-            printk(KERN_CRIT "create e530_48t4x_p sfp[%d] device attr:eeprom failed\n", i);
+            printk(KERN_CRIT "create e530_48s4x sfp[%d] device attr:eeprom failed\n", i);
             continue;
         }
     }
@@ -1010,7 +1085,7 @@ static int e530_48t4x_p_init_sfp(void)
     return ret;
 }
 
-static int e530_48t4x_p_exit_sfp(void)
+static int e530_48s4x_exit_sfp(void)
 {
     int i = 0;
 
@@ -1036,67 +1111,74 @@ static int e530_48t4x_p_exit_sfp(void)
 }
 #endif
 
-static int e530_48t4x_p_init(void)
+static int e530_48s4x_init(void)
 {
     int ret = 0;
     int failed = 0;
     
-    printk(KERN_ALERT "install e530_48t4x_p board dirver...\n");
+    printk(KERN_ALERT "install e530_48s4x board dirver...\n");
 
     ctc_irq_init();
     ctc_pincrtl_init();
     
-    ret = e530_48t4x_p_init_i2c_master();
+    ret = e530_48s4x_init_i2c_master();
     if (ret != 0)
     {
         failed = 1;
     }
 
-    ret = e530_48t4x_p_init_i2c_gpio();
+    ret = e530_48s4x_init_i2c_gpio();
     if (ret != 0)
     {
         failed = 1;
     }
 
-    ret = e530_48t4x_p_init_psu();
+    ret = e530_48s4x_init_i2c_epld();
     if (ret != 0)
     {
         failed = 1;
     }
 
-    ret = e530_48t4x_p_init_led();
+    ret = e530_48s4x_init_psu();
     if (ret != 0)
     {
         failed = 1;
     }
 
-    ret = e530_48t4x_p_init_sfp();
+    ret = e530_48s4x_init_led();
+    if (ret != 0)
+    {
+        failed = 1;
+    }
+
+    ret = e530_48s4x_init_sfp();
     if (ret != 0)
     {
         failed = 1;
     }
 
     if (failed)
-        printk(KERN_INFO "install e530_48t4x_p board driver failed\n");
+        printk(KERN_INFO "install e530_48s4x board driver failed\n");
     else
-        printk(KERN_ALERT "install e530_48t4x_p board dirver...ok\n");
+        printk(KERN_ALERT "install e530_48s4x board dirver...ok\n");
     
     return 0;
 }
 
-static void e530_48t4x_p_exit(void)
+static void e530_48s4x_exit(void)
 {
-    printk(KERN_INFO "uninstall e530_48t4x_p board dirver...\n");
+    printk(KERN_INFO "uninstall e530_48s4x board dirver...\n");
     
-    e530_48t4x_p_exit_sfp();
-    e530_48t4x_p_exit_led();
-    e530_48t4x_p_exit_psu();
-    e530_48t4x_p_exit_i2c_gpio();
-    e530_48t4x_p_exit_i2c_master();
+    e530_48s4x_exit_sfp();
+    e530_48s4x_exit_led();
+    e530_48s4x_exit_psu();
+    e530_48s4x_exit_i2c_epld();
+    e530_48s4x_exit_i2c_gpio();
+    e530_48s4x_exit_i2c_master();
 }
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("shil centecNetworks, Inc");
-MODULE_DESCRIPTION("e530-48t4x-p board driver");
-module_init(e530_48t4x_p_init);
-module_exit(e530_48t4x_p_exit);
+MODULE_DESCRIPTION("e530-48s4x board driver");
+module_init(e530_48s4x_init);
+module_exit(e530_48s4x_exit);

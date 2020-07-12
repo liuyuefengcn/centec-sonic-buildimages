@@ -73,7 +73,7 @@ class SfpUtil(SfpUtilBase):
         self.SONIC_PORT_NAME_PREFIX = "Ethernet"
         self.PORT_START = 1
         self.PORT_END = 52
-	self.SFP_BASE = 49
+	self.SFP_BASE = 1
         self.PORTS_IN_BLOCK = 52
         self.logical = []
         self.physical_to_logical = {}
