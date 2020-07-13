@@ -104,7 +104,7 @@ INCLUDE_SYSTEM_TELEMETRY = y
 INCLUDE_SFLOW = y
 
 # INCLUDE_MGMT_FRAMEWORK - build docker-sonic-mgmt-framework for CLI and REST server support
-INCLUDE_MGMT_FRAMEWORK = y
+INCLUDE_MGMT_FRAMEWORK = n
 
 # INCLUDE_RESTAPI - build docker-sonic-restapi for configuring the switch using REST APIs
 INCLUDE_RESTAPI = n
