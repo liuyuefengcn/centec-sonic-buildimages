@@ -15,6 +15,10 @@
 
 function load_kernel_modules()
 {
+    hwaddr=`fw_printenv ethaddr | awk -F = '{print $2}'`
+    if [ "$hwaddr" != "" ]; then
+        ifconfig eth0 hw ether $hwaddr
+    fi
     depmod -a
     modprobe centec_e530_48t4x_p_platform
     modprobe fan-ctc5236
