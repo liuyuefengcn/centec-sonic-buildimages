@@ -2,7 +2,7 @@
 # This script load/unload centec kernel modules
 
 ### BEGIN INIT INFO
-# Provides:          platform-modules-e530-24x2c
+# Provides:          platform-modules-e530-48s4x
 # Required-Start:
 # Required-Stop:
 # Should-Start:
@@ -20,7 +20,7 @@ function load_kernel_modules()
         ifconfig eth0 hw ether $hwaddr
     fi
     depmod -a
-    modprobe centec_e530_24x2c_platform
+    modprobe centec_e530_48s4x_platform
     modprobe fan-ctc5236
     modprobe dal
 }
@@ -29,7 +29,7 @@ function remove_kernel_modules()
 {
     modprobe -r dal
     modprobe -r fan-ctc5236
-    modprobe -r centec_e530_24x2c_platform
+    modprobe -r centec_e530_48s4x_platform
 }
 
 case "$1" in
@@ -54,7 +54,7 @@ force-reload|restart)
     ;;
 
 *)
-    echo "Usage: /etc/init.d/platform-modules-e530-24x2c {start|stop}"
+    echo "Usage: /etc/init.d/platform-modules-e530-48s4x {start|stop}"
     exit 1
     ;;
 esac
