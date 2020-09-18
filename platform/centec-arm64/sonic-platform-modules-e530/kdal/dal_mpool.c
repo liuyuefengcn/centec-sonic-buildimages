@@ -1,6 +1,8 @@
+#ifdef CLANG
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-designator"
+#endif
 
-/*SYSTEM MODIFIED, Added by weij for compile SDK, 2017-09-11*/
-//#include "sal.h"
 #include "dal_mpool.h"
 #define DAL_MAX_CHIP_NUM 32
 #ifdef __KERNEL__
@@ -40,14 +42,12 @@ dal_mpool_mem_t* g_free_block_ptr = NULL;
 static dal_mpool_mem_t* p_desc_pool[DAL_MAX_CHIP_NUM] = {0};
 static dal_mpool_mem_t* p_data_pool[DAL_MAX_CHIP_NUM] = {0};
 
-/*SYSTEM MODIFIED, Added by weij for compile SDK, 2017-09-11*/
 int
 dal_mpool_init(uint8_t lchip)
 {
     MPOOL_LOCK_INIT();
     return 0;
 }
-/*SYSTEM MODIFIED, Added by weij for compile SDK, 2017-09-11*/
 int
 dal_mpool_deinit(uint8_t lchip)
 {
@@ -320,7 +320,6 @@ dal_mpool_usage(dal_mpool_mem_t* pool, int type)
 {
     int usage = 0;
     dal_mpool_mem_t* ptr;
-    /*SYSTEM MODIFIED, Added by weij for compile SDK, 2017-09-11*/
     uint8_t lchip = 0;
     MPOOL_LOCK();
 
@@ -342,7 +341,6 @@ dal_mpool_debug(dal_mpool_mem_t* pool)
 {
     dal_mpool_mem_t* ptr;
     int index = 0;
-    /*SYSTEM MODIFIED, Added by weij for compile SDK, 2017-09-11*/
     uint8_t lchip = 0;
     MPOOL_LOCK();
 
@@ -357,4 +355,8 @@ dal_mpool_debug(dal_mpool_mem_t* pool)
 
     return 0;
 }
+
+#ifdef CLANG
+#pragma clang diagnostic pop
+#endif
 
