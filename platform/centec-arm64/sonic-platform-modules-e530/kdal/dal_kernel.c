@@ -99,8 +99,14 @@ typedef struct dal_kernel_local_dev_s
     /* PCI I/O mapped base address */
     void __iomem * logic_address;
 
+    /* Dma ctl I/O mapped base address */
+    void __iomem * dma_logic_address;
+
     /* Physical address */
     uintptr phys_address;
+
+    /* Dma ctl Physical address*/
+    uintptr dma_phys_address;
 } dal_kern_local_dev_t;
 #endif
 
@@ -158,8 +164,11 @@ static int dal_intr_num = 0;
 static int use_high_memory = 0;
 static unsigned int* dma_virt_base[DAL_MAX_CHIP_NUM];
 static unsigned long long dma_phy_base[DAL_MAX_CHIP_NUM];
+static unsigned int* wb_virt_base[DAL_MAX_CHIP_NUM];
+static unsigned long long wb_phy_base[DAL_MAX_CHIP_NUM];
 static unsigned int dma_mem_size = 0xc00000;
-static unsigned int msi_irq_base[DAL_MAX_CHIP_NUM];
+static unsigned int wb_mem_size =  0x4000000;
+static unsigned int msi_irq_base[DAL_MAX_CHIP_NUM][CTC_MAX_INTR_NUM];
 static unsigned int msi_irq_num[DAL_MAX_CHIP_NUM];
 static unsigned int msi_used = 0;
 static unsigned int active_type[DAL_MAX_CHIP_NUM] = {0};
@@ -660,49 +669,95 @@ dal_interrupt_set_en(unsigned int irq, unsigned int enable)
 }
 
 static int
-_dal_set_msi_enabe(unsigned int lchip, unsigned int irq_num)
+_dal_set_msi_enabe(unsigned int lchip, unsigned int irq_num, unsigned int msi_type)
 {
     int ret = 0;
     dal_kern_pcie_dev_t* dev = NULL;
 
     if (DAL_CPU_MODE_TYPE_PCIE == active_type[lchip])
     {
+        unsigned int index = 0;
         dev = dal_dev[lchip];
         if (NULL == dev)
         {
             return -1;
         }
-        if (irq_num == 1)
-        {
-            ret = pci_enable_msi(dev->pci_dev);
-            if (ret)
-            {
-                printk ("msi enable failed!!! lchip = %d, irq_num = %d\n", lchip, irq_num);
-                pci_disable_msi(dev->pci_dev);
-                msi_used = 0;
-            }
 
-            msi_irq_base[lchip] = dev->pci_dev->irq;
+        if (DAL_MSI_TYPE_MSI == msi_type)
+        {
+            if (irq_num == 1)
+            {
+                ret = pci_enable_msi(dev->pci_dev);
+                if (ret)
+                {
+                    printk ("msi enable failed!!! lchip = %d, irq_num = %d\n", lchip, irq_num);
+                    pci_disable_msi(dev->pci_dev);
+                    msi_used = 0;
+                }
+
+            msi_irq_base[lchip][0] = dev->pci_dev->irq;
             msi_irq_num[lchip] = 1;
         }
         else
         {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 79))
-            ret = pci_enable_msi_exact(dev->pci_dev, irq_num);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
+            ret = pci_alloc_irq_vectors(dev->pci_dev, 1, irq_num, PCI_IRQ_ALL_TYPES);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 79))
+                ret = pci_enable_msi_exact(dev->pci_dev, irq_num);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 26, 32))
-            ret = pci_enable_msi_block(dev->pci_dev, irq_num);
+                ret = pci_enable_msi_block(dev->pci_dev, irq_num);
 #else
-            ret = -1;
+                ret = -1;
 #endif
-            if (ret)
-            {
-                printk ("msi enable failed!!! lchip = %d, irq_num = %d\n", lchip, irq_num);
-                pci_disable_msi(dev->pci_dev);
-                msi_used = 0;
-            }
+                if (ret)
+                {
+                    printk ("msi enable failed!!! lchip = %d, irq_num = %d\n", lchip, irq_num);
+                    pci_disable_msi(dev->pci_dev);
+                    msi_used = 0;
+                }
 
-            msi_irq_base[lchip] = dev->pci_dev->irq;
-            msi_irq_num[lchip] = irq_num;
+                msi_irq_num[lchip] = irq_num;
+                for (index=0; index<irq_num; index++)
+                {
+                    msi_irq_base[lchip][index] = dev->pci_dev->irq+index;
+                }
+
+            }
+        }
+        else
+        {
+            struct msix_entry entries[CTC_MAX_INTR_NUM];
+            unsigned int index = 0;
+            memset(entries, 0, sizeof(struct msix_entry)*CTC_MAX_INTR_NUM);
+            for (index = 0; index < CTC_MAX_INTR_NUM; index++)
+            {
+                entries[index].entry = index;
+            }
+            ret = pci_enable_msix(dev->pci_dev, entries, irq_num);
+            if (ret > 0)
+            {
+                printk ("msix retrying interrupts = %d\n", ret);
+                ret = pci_enable_msix(dev->pci_dev, entries, ret);
+                if (ret != 0)
+                {
+                    printk ("msix enable failed!!! lchip = %d, irq_num = %d\n", lchip, irq_num);
+                    return -1;
+                }
+            }
+            else if (ret < 0)
+            {
+                printk ("msix enable failed!!! lchip = %d, irq_num = %d\n", lchip, irq_num);
+                return -1;
+            }
+            else
+            {
+                msi_irq_num[lchip] = irq_num;
+                for (index=0; index<irq_num; index++)
+                {
+                    msi_irq_base[lchip][index] = entries[index].vector+index;
+                    printk ("msix enable success!!! irq index %u, irq val %u\n", index, msi_irq_base[lchip][index]);
+                }
+            }
         }
     }
 
@@ -710,7 +765,7 @@ _dal_set_msi_enabe(unsigned int lchip, unsigned int irq_num)
 }
 
 static int
-_dal_set_msi_disable(unsigned int lchip)
+_dal_set_msi_disable(unsigned int lchip, unsigned int msi_type)
 {
     dal_kern_pcie_dev_t* dev = NULL;
 
@@ -721,9 +776,16 @@ _dal_set_msi_disable(unsigned int lchip)
         {
             return -1;
         }
-        pci_disable_msi(dev->pci_dev);
+        if (DAL_MSI_TYPE_MSI == msi_type)
+        {
+            pci_disable_msi(dev->pci_dev);
+        }
+        else
+        {
+            pci_disable_msix(dev->pci_dev);
+        }
 
-        msi_irq_base[lchip] = 0;
+        memset(&msi_irq_base[0][0], 0, sizeof(unsigned int)*DAL_MAX_CHIP_NUM*CTC_MAX_INTR_NUM);
         msi_irq_num[lchip] = 0;
     }
 
@@ -742,7 +804,7 @@ dal_set_msi_cap(unsigned long arg)
         return -EFAULT;
     }
 
-    printk("####dal_set_msi_cap lchip %d base %d num:%d\n", msi_info.lchip, msi_info.irq_base, msi_info.irq_num);
+    printk("####dal_set_msi_cap lchip %d base %d num:%d\n", msi_info.lchip, msi_info.irq_base[0], msi_info.irq_num);
     if (DAL_CPU_MODE_TYPE_PCIE == active_type[msi_info.lchip])
     {
         if (msi_info.irq_num > 0)
@@ -750,23 +812,23 @@ dal_set_msi_cap(unsigned long arg)
             if (0 == msi_used)
             {
                 msi_used = 1;
-                ret = _dal_set_msi_enabe(msi_info.lchip, msi_info.irq_num);
+                ret = _dal_set_msi_enabe(msi_info.lchip, msi_info.irq_num, msi_info.msi_type);
             }
             else if ((1 == msi_used) && (msi_info.irq_num != msi_irq_num[msi_info.lchip]))
             {
                 for (index = 0; index < msi_irq_num[msi_info.lchip]; index++)
                 {
-                    dal_interrupt_unregister(msi_irq_base[msi_info.lchip]+index);
+                    dal_interrupt_unregister(msi_irq_base[msi_info.lchip][index]);
                 }
-                _dal_set_msi_disable(msi_info.lchip);
+                _dal_set_msi_disable(msi_info.lchip, msi_info.msi_type);
                 msi_used = 1;
-                ret = _dal_set_msi_enabe(msi_info.lchip, msi_info.irq_num);
+                ret = _dal_set_msi_enabe(msi_info.lchip, msi_info.irq_num, msi_info.msi_type);
             }
         }
         else
         {
             msi_used = 0;
-            ret = _dal_set_msi_disable(msi_info.lchip);
+            ret = _dal_set_msi_disable(msi_info.lchip, msi_info.msi_type);
         }
     }
 
@@ -833,7 +895,6 @@ dal_user_interrupt_set_en(unsigned long arg)
  *       2: Part of largest contiguous segment
  *       3: Part of current contiguous segment
  */
-#ifndef DMA_MEM_MODE_PLATFORM
 static int
 _dal_find_largest_segment(dma_segment_t* dseg)
 {
@@ -1066,7 +1127,7 @@ _dal_dma_segment_free(dma_segment_t* dseg)
                      page_addr < dseg->blk_ptr[i] + dseg->blk_size;
                      page_addr += PAGE_SIZE)
                 {
-                    MEM_MAP_UNRESERVE(VIRT_TO_PAGE(page_addr));
+                    MEM_MAP_UNRESERVE(VIRT_TO_PAGE((void*)page_addr));
                 }
 
                 free_pages(dseg->blk_ptr[i], dseg->blk_order);
@@ -1126,7 +1187,6 @@ _dal_pgfree(void* ptr)
     }
     return -1;
 }
-#endif
 
 static void
 dal_alloc_dma_pool(int lchip, int size)
@@ -1212,6 +1272,14 @@ dal_free_dma_pool(int lchip)
         printk("Dma free memory fail !!!!!! \n");
     }
 #endif
+    }
+    if (wb_virt_base[lchip])
+    {
+        ret = _dal_pgfree(wb_virt_base[lchip]);
+        if(ret<0)
+        {
+            printk("free wb memory fail !!!!!! \n");
+        }
     }
 }
 
@@ -1432,8 +1500,10 @@ linux_get_device(unsigned long arg)
 #if defined(SOC_ACTIVE)
         if (DAL_CPU_MODE_TYPE_LOCAL == active_type[lchip])
         {
-            user_dev.phy_base0 = (unsigned int)((dal_kern_pcie_dev_t*)(dal_dev[lchip]))->phys_address;
-            user_dev.phy_base1 = (unsigned int)(((dal_kern_pcie_dev_t*)(dal_dev[lchip]))->phys_address >> 32);
+            user_dev.phy_base0 = (unsigned int)((dal_kern_local_dev_t*)(dal_dev[lchip]))->phys_address;
+            user_dev.phy_base1 = (unsigned int)(((dal_kern_local_dev_t*)(dal_dev[lchip]))->phys_address >> 32);
+            user_dev.dma_phy_base0 = (unsigned int)((dal_kern_local_dev_t*)(dal_dev[lchip]))->dma_phys_address;
+            user_dev.dma_phy_base1 = (unsigned int)(((dal_kern_local_dev_t*)(dal_dev[lchip]))->dma_phys_address >> 32);
             user_dev.bus_no = 0;
             user_dev.dev_no = CTC_TSINGMA_DEVICE_ID;
             user_dev.fun_no = 0;
@@ -1454,7 +1524,7 @@ linux_get_device(unsigned long arg)
 static int
 linux_get_dal_version(unsigned long arg)
 {
-    int dal_ver = VERSION_1DOT2;    /* set dal version */
+    int dal_ver = VERSION_1DOT4;    /* set dal version */
 
     if (copy_to_user((int*)arg, (void*)&dal_ver, sizeof(dal_ver)))
     {
@@ -1492,10 +1562,43 @@ linux_get_dma_info(unsigned long arg)
 }
 
 static int
+linux_get_wb_info(unsigned long arg)
+{
+    dal_dma_info_t dma_para;
+
+    if (copy_from_user(&dma_para, (void*)arg, sizeof(dal_dma_info_t)))
+    {
+        return -EFAULT;
+    }
+
+    if (wb_mem_size && (0 == wb_phy_base[dma_para.lchip]))
+    {
+        /* Get wb memory from kernel */
+        wb_virt_base[dma_para.lchip] = _dal_pgalloc(wb_mem_size);
+        wb_phy_base[dma_para.lchip] = virt_to_bus(wb_virt_base[dma_para.lchip]);
+        printk("wb_phy_base[lchip] 0x%llx wb_virt_base[lchip] %p \n", wb_phy_base[dma_para.lchip], wb_virt_base[dma_para.lchip]);
+    }
+    dma_para.phy_base = (unsigned int)wb_phy_base[dma_para.lchip];
+    dma_para.phy_base_hi = wb_phy_base[dma_para.lchip] >> 32;
+    dma_para.virt_base = wb_virt_base[dma_para.lchip];
+    dma_para.size = wb_mem_size;
+
+    printk("dal dma phy addr: 0x%llx, virt addr: %p.\n", wb_phy_base[dma_para.lchip], wb_virt_base[dma_para.lchip]);
+
+    if (copy_to_user((dal_dma_info_t*)arg, (void*)&dma_para, sizeof(dal_dma_info_t)))
+    {
+        return -EFAULT;
+    }
+
+    return 0;
+}
+
+static int
 dal_get_msi_info(unsigned long arg)
 {
     dal_msi_info_t msi_para;
     unsigned int lchip = 0;
+    unsigned int index = 0;
 
     /* get lchip form user mode */
     if (copy_from_user(&msi_para, (void*)arg, sizeof(dal_msi_info_t)))
@@ -1506,14 +1609,20 @@ dal_get_msi_info(unsigned long arg)
 
     if (DAL_CPU_MODE_TYPE_PCIE == active_type[lchip])
     {
-        msi_para.irq_base = msi_irq_base[lchip];
         msi_para.irq_num = msi_irq_num[lchip];
+        for (index=0; index<msi_para.irq_num; index++)
+        {
+            msi_para.irq_base[index] = msi_irq_base[lchip][index];
+        }
     }
 #if defined(SOC_ACTIVE)
     if (DAL_CPU_MODE_TYPE_LOCAL == active_type[lchip])
     {
-        msi_para.irq_base = dal_int[0].irq;
         msi_para.irq_num = CTC_MAX_INTR_NUM;
+        for (index=0; index<msi_para.irq_num; index++)
+        {
+            msi_para.irq_base[index] = dal_int[lchip].irq;
+        }
     }
 #endif
 
@@ -1620,6 +1729,51 @@ dal_user_cache_flush(unsigned long arg)
     return 0;
 }
 
+int
+dal_dma_direct_read(unsigned char lchip, unsigned int offset, unsigned int* value)
+{
+    if (!VERIFY_CHIP_INDEX(lchip))
+    {
+        return -1;
+    }
+
+    if (DAL_CPU_MODE_TYPE_LOCAL != active_type[lchip])
+    {
+        return -1;
+    }
+
+#if defined(SOC_ACTIVE)
+    if (DAL_CPU_MODE_TYPE_LOCAL == active_type[lchip])
+    {
+        *value = *(volatile unsigned int*)(((dal_kern_local_dev_t*)(dal_dev[lchip]))->dma_logic_address + offset);
+    }
+#endif
+    return 0;
+}
+
+int
+dal_dma_direct_write(unsigned char lchip, unsigned int offset, unsigned int value)
+{
+    if (!VERIFY_CHIP_INDEX(lchip))
+    {
+        return -1;
+    }
+
+    if (DAL_CPU_MODE_TYPE_LOCAL != active_type[lchip])
+    {
+        return -1;
+    }
+
+#if defined(SOC_ACTIVE)
+    if (DAL_CPU_MODE_TYPE_LOCAL == active_type[lchip])
+    {
+        *(volatile unsigned int*)(((dal_kern_local_dev_t*)(dal_dev[lchip]))->dma_logic_address + offset) = value;
+    }
+#endif
+
+    return 0;
+}
+
 #if defined(SOC_ACTIVE)
 static int linux_dal_local_probe(struct platform_device *pdev)
 {
@@ -1629,6 +1783,7 @@ static int linux_dal_local_probe(struct platform_device *pdev)
     int i = 0;
     int irq = 0;
     struct resource * res = NULL;
+    struct resource * dma_res = NULL;
 
     printk(KERN_WARNING "********found soc dal device*****\n");
 
@@ -1673,6 +1828,23 @@ static int linux_dal_local_probe(struct platform_device *pdev)
     {
         kfree(dev);
         return PTR_ERR(dev->logic_address);
+    }
+
+    dma_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+    if (dma_res && dma_res->start)
+    {
+        dev->dma_phys_address = dma_res->start;
+        dev->dma_logic_address = devm_ioremap_resource(&pdev->dev, dma_res);
+        if (IS_ERR(dev->dma_logic_address))
+        {
+            kfree(dev);
+            return PTR_ERR(dev->dma_logic_address);
+        }
+    }
+    else
+    {
+        dev->dma_phys_address = 0;
+        dev->dma_logic_address = 0;
     }
 
     for (i = 0; i < CTC_MAX_INTR_NUM; i++)
@@ -1846,6 +2018,10 @@ linux_dal_local_remove(struct platform_device *pdev)
     if (1 == flag)
     {
         dal_free_dma_pool(lchip);
+        if (wb_virt_base[lchip])
+        {
+            _dal_pgfree(wb_virt_base[lchip]);
+        }
         dev->pci_dev = NULL;
         kfree(dev);
         dal_chip_num--;
@@ -1876,6 +2052,10 @@ linux_dal_pcie_remove(struct pci_dev* pdev)
     if (1 == flag)
     {
         dal_free_dma_pool(lchip);
+        if (wb_virt_base[lchip])
+        {
+            _dal_pgfree(wb_virt_base[lchip]);
+        }
         pci_release_regions(pdev);
         pci_disable_device(pdev);
         dev->pci_dev = NULL;
@@ -1954,6 +2134,8 @@ linux_dal_ioctl(struct inode* inode, struct file* file,
     case CMD_CACHE_FLUSH:
         return dal_user_cache_flush(arg);
 
+    case CMD_GET_WB_INFO:
+        return linux_get_wb_info(arg);
     default:
         break;
     }
@@ -2229,4 +2411,6 @@ module_exit(linux_dal_exit);
 EXPORT_SYMBOL(dal_get_dal_ops);
 EXPORT_SYMBOL(dal_cache_inval);
 EXPORT_SYMBOL(dal_cache_flush);
+EXPORT_SYMBOL(dal_dma_direct_read);
+EXPORT_SYMBOL(dal_dma_direct_write);
 
