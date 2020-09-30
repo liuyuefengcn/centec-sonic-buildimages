@@ -23,10 +23,14 @@ function load_kernel_modules()
     modprobe centec_e530_48s4x_platform
     modprobe fan-ctc5236
     modprobe dal
+    modprobe tun
+    modprobe tap
 }
 
 function remove_kernel_modules()
 {
+    modprobe -r tap
+    modprobe -r tun
     modprobe -r dal
     modprobe -r fan-ctc5236
     modprobe -r centec_e530_48s4x_platform
