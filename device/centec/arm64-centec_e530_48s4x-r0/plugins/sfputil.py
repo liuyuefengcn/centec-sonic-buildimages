@@ -78,6 +78,7 @@ class SfpUtil(SfpUtilBase):
         self.logical = []
         self.physical_to_logical = {}
         self.logical_to_physical = {}
+        self.logical_to_asic = {}
 
 
         self.eeprom_mapping = {}
@@ -132,9 +133,10 @@ class SfpUtil(SfpUtilBase):
         return False
 
 
-    def read_porttab_mappings(self, porttabfile):
+    def read_porttab_mappings(self, porttabfile, asic_inst = 0):
         for x in range(self.sfp_base, self.port_end + 1):
             self.logical_to_physical['Ethernet' + str(x)] = [x]
+            self.logical_to_asic['Ethernet' + str(x)] = 0
             self.physical_to_logical[x] = ['Ethernet' + str(x)]
 
     data = {'valid':0, 'last':0}
