@@ -1,5 +1,0 @@
-kdal/dal.ko /lib/modules/4.9.0-11-2-arm64/kernel/extra
-fan/fan-ctc5236.ko /lib/modules/4.9.0-11-2-arm64/kernel/extra
-48s4x/modules/centec_e530_48s4x_platform.ko /lib/modules/4.9.0-11-2-arm64/kernel/extra
-48s4x/service/48s4x_platform.service /lib/systemd/system
-config/fw_env.config /etc
