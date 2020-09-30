@@ -15,15 +15,15 @@ export INSTALL_MOD_DIR:=extra
 
 PYTHON         ?= python2
 
-PACKAGE_PRE_NAME := sonic-platform-modules-e530
+PACKAGE_PRE_NAME := platform-modules-e530
 KVERSION   ?= $(shell uname -r)
 KERNEL_SRC :=  /lib/modules/$(KVERSION)
 MOD_SRC_DIR:= $(shell pwd)
-MODULE_DIRS:= 48t4x_p 24x2c 48s4x
+MODULE_DIRS:= 48t4x-p 24x2c 48s4x
 MODULE_DIR := modules
-UTILS_DIR := utils
 SERVICE_DIR := service
 CLASSES_DIR := classes
+CONFIG_DIR := config
 CONF_DIR := conf
 KDAL_DIR := kdal
 FAN_DIR := fan
@@ -46,7 +46,7 @@ build:
 	done)
 	(for mod in $(MODULE_DIRS); do \
 		make modules -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/modules; \
-		$(PYTHON) $${mod}/setup.py build; \
+		cd $${mod}; $(PYTHON) setup.py build; cd -; \
 	done)
 
 binary: binary-arch binary-indep
@@ -68,14 +68,14 @@ binary-indep:
 	# Custom package commands
 	(for mod in $(MODULE_DIRS); do \
 		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
-		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} usr/local/bin; \
 		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} lib/systemd/system; \
+		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} etc; \
 		cp $(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
 		cp $(MOD_SRC_DIR)/$(KDAL_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
 		cp $(MOD_SRC_DIR)/$(FAN_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
-		cp $(MOD_SRC_DIR)/$${mod}/$(UTILS_DIR)/* debian/$(PACKAGE_PRE_NAME)-$${mod}/usr/local/bin/; \
 		cp $(MOD_SRC_DIR)/$${mod}/$(SERVICE_DIR)/*.service debian/$(PACKAGE_PRE_NAME)-$${mod}/lib/systemd/system/; \
-		$(PYTHON) $${mod}/setup.py install --root=$(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod} --install-layout=deb; \
+		cp $(MOD_SRC_DIR)/${CONFIG_DIR}/* debian/$(PACKAGE_PRE_NAME)-$${mod}/etc/; \
+		cd $${mod}; $(PYTHON) setup.py install --root=$(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod} --install-layout=deb; cd -; \
 	done)
 	# Resuming debhelper scripts
 	dh_testroot

@@ -6,11 +6,11 @@ from setuptools import setup
 os.listdir
 
 setup(
-   name='48s4x',
-   version='1.1',
+   name='sonic_platform',
+   version='1.3',
    description='Module to initialize centec e530-48s4x platforms',
    
-   packages=['48s4x'],
-   package_dir={'48s4x': '48s4x/classes'},
+   packages=['sonic_platform'],
+   package_dir={'sonic_platform': 'sonic_platform'},
 )
 
