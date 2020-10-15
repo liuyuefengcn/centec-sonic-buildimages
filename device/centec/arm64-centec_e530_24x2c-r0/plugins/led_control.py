@@ -37,7 +37,7 @@ class LedControl(LedControlBase):
             return -1
 
         port_idx = int(port_name[len(self.SONIC_PORT_NAME_PREFIX):])
-        return port_idx
+        return port_idx + 1
 
     def _port_state_to_mode(self, port_idx, state):
         if state == "up":

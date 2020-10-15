@@ -9,9 +9,19 @@ try:
     import os
     from sonic_platform_base.chassis_base import ChassisBase
     from sonic_platform.eeprom import Eeprom
+    from sonic_platform.fan import Fan
+    from sonic_platform.thermal import Thermal
+    from sonic_platform.sfp import Sfp
+    from sonic_platform.psu import Psu
 
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
+
+NUM_FAN_TRAY = 1
+NUM_FAN = 3
+NUM_THERMAL = 1
+NUM_PORT    = 52
+NUM_PSU = 2
 
 class Chassis(ChassisBase):
 
@@ -19,6 +29,23 @@ class Chassis(ChassisBase):
         ChassisBase.__init__(self)
         # Initialize EEPROM
         self._eeprom = Eeprom()
+        # Initialize FAN
+        for fant_index in range(0, NUM_FAN_TRAY):
+            for fan_index in range(0, NUM_FAN):
+                fan = Fan(fant_index, fan_index)
+                self._fan_list.append(fan)
+        # Initialize THERMAL
+        for index in range(0, NUM_THERMAL):
+            thermal = Thermal(index)
+            self._thermal_list.append(thermal)
+        # Initialize SFP
+        for index in range(0, NUM_PORT):
+            sfp = Sfp(index + 1)
+            self._sfp_list.append(sfp)
+        # Initialize PSU
+        for index in range(0, NUM_PSU):
+            psu = Psu(index + 1)
+            self._psu_list.append(psu)
            
 ##############################################
 # Device methods
@@ -113,3 +140,36 @@ class Chassis(ChassisBase):
             to pass a description of the reboot cause.
         """
         return (None, None)
+
+    def get_change_event(self, timeout=2000):
+        """
+        Returns a nested dictionary containing all devices which have
+        experienced a change at chassis level
+
+        Args:
+            timeout: Timeout in milliseconds (optional). If timeout == 0,
+                this method will block until a change is detected.
+
+        Returns:
+            (bool, dict):
+                - True if call successful, False if not;
+                - A nested dictionary where key is a device type,
+                  value is a dictionary with key:value pairs in the
+                  format of {'device_id':'device_event'},
+                  where device_id is the device ID for this device and
+                        device_event,
+                             status='1' represents device inserted,
+                             status='0' represents device removed.
+                  Ex. {'fan':{'0':'0', '2':'1'}, 'sfp':{'11':'0'}}
+                      indicates that fan 0 has been removed, fan 2
+                      has been inserted and sfp 11 has been removed.
+        """
+        ret, port_dict = self._sfp_list[0].get_transceiver_change_event(timeout)
+        ret_dict = {"sfp": port_dict}
+        return ret, ret_dict
+
+    def get_num_psus(self):
+        return len(self._psu_list)
+
+    def get_psu(self, psu_index):
+        return self._psu_list[psu_index]

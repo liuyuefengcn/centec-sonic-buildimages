@@ -18,6 +18,7 @@ class Eeprom(eeprom_tlvinfo.TlvInfoDecoder):
         super(Eeprom, self).__init__(self.__eeprom_path, 0, '', True)
         self.__eeprom_tlv_dict = dict()
         try:
+            self.open_eeprom()
             self.__eeprom_data = self.read_eeprom()
         except:
             self.__eeprom_data = "N/A"
