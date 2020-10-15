@@ -1,2 +1,3 @@
 systemctl enable 48t4x_p_platform.service
 systemctl start 48t4x_p_platform.service
+sed -i "/    docker create --privileged/a\        -v /usr/lib/python2.7/dist-packages/sonic_platform:/usr/lib/python2.7/dist-packages/sonic_platform:rw \\\\" /usr/bin/pmon.sh
