@@ -55,7 +55,7 @@ class SfpUtil(SfpUtilBase):
 
         port_idx = int(port_name[len(self.SONIC_PORT_NAME_PREFIX):])
 
-        return [port_idx]
+        return [port_idx + 1]
 
     def get_eeprom_data(self, port):
         (ctlid, devid) = self.fiber_mapping[port]
