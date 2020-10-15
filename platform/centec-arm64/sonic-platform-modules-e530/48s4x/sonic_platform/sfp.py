@@ -4,12 +4,17 @@ from __future__ import print_function
 
 import time
 import imp
+import os
 
 try:
     from sonic_platform_base.sfp_base import SfpBase
     from sonic_py_common import device_info
 except ImportError as e:
     raise ImportError("%s - required module not found" % e)
+
+USR_SHARE_SONIC_PATH = "/usr/share/sonic"
+HOST_DEVICE_PATH = USR_SHARE_SONIC_PATH + "/device"
+CONTAINER_PLATFORM_PATH = USR_SHARE_SONIC_PATH + "/platform"
 
 class Sfp(SfpBase):
     """
@@ -39,8 +44,13 @@ class Sfp(SfpBase):
     def __init__(self, index):
         self._index = index
         
-        # Get path to platform and hwsku
-        platform_path, hwsku_path = device_info.get_paths_to_platform_and_hwsku_dirs()
+        if os.path.isdir(CONTAINER_PLATFORM_PATH):
+            platform_path = CONTAINER_PLATFORM_PATH
+        else:
+            platform = device_info.get_platform()
+            if platform is None:
+                return
+            platform_path = os.path.join(HOST_DEVICE_PATH, platform)
 
         module_file = "/".join([platform_path, "plugins", "sfputil.py"])
         module = imp.load_source("sfputil", module_file)
