@@ -183,8 +183,8 @@ program_console_speed()
         CONSOLE_SPEED=$speed
     fi
 
-    # sed -i "s|\-\-keep\-baud .* %I| $CONSOLE_SPEED %I|g" /lib/systemd/system/serial-getty@.service
-    sed -i "s/9600/$CONSOLE_SPEED/g" /lib/systemd/system/serial-getty@.service
+    sed -i "s|\-\-keep\-baud .* %I| $CONSOLE_SPEED %I|g" /lib/systemd/system/serial-getty@.service
+    # sed -i "s/9600/$CONSOLE_SPEED/g" /lib/systemd/system/serial-getty@.service
     systemctl daemon-reload
 }
 
