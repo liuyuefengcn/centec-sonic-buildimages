@@ -47,7 +47,7 @@ class Thermal(ThermalBase):
         temp_file_path = os.path.join(self.hwmon_path, temp_file)
         raw_temp = self.__read_txt_file(temp_file_path)
         temp = float(raw_temp)/1000
-        return "{:.3f}".format(temp)
+        return float("{:.3f}".format(temp))
 
     def __set_threshold(self, file_name, temperature):
         temp_file_path = os.path.join(self.hwmon_path, file_name)
