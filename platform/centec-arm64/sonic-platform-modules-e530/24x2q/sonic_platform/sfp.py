@@ -61,7 +61,7 @@ class Sfp(SfpBase):
         return self._index
 
     def get_name(self):
-        return "Ethernet{}".format(self._index - 1)
+        return "Ethernet{}".format(self._index)
 
     def get_lpmode(self):
         return False

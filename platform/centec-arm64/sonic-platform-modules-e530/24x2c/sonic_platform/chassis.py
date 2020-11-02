@@ -7,26 +7,55 @@
 
 try:
     import os
+    import re
+    import collections
     from sonic_platform_base.chassis_base import ChassisBase
     from sonic_platform.eeprom import Eeprom
     from sonic_platform.fan import Fan
     from sonic_platform.thermal import Thermal
     from sonic_platform.sfp import Sfp
     from sonic_platform.psu import Psu
-
+    from sonic_py_common import device_info
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
 NUM_FAN_TRAY = 1
 NUM_FAN = 3
 NUM_THERMAL = 1
-NUM_PORT    = 26
 NUM_PSU = 2
+USR_SHARE_SONIC_PATH = "/usr/share/sonic"
+HOST_DEVICE_PATH = USR_SHARE_SONIC_PATH + "/device"
+CONTAINER_PLATFORM_PATH = USR_SHARE_SONIC_PATH + "/platform"
 
 class Chassis(ChassisBase):
 
     def __init__(self):
         ChassisBase.__init__(self)
+
+        if os.path.isdir(CONTAINER_PLATFORM_PATH):
+            platform_path = CONTAINER_PLATFORM_PATH
+        else:
+            platform = device_info.get_platform()
+            if platform is None:
+                raise
+            platform_path = os.path.join(HOST_DEVICE_PATH, platform)
+
+        port_config_file = "/".join([platform_path, "E530-24x2c", "port_config.ini"])
+        try:
+            f = open(port_config_file)
+        except:
+            raise
+        for line in f:
+            line.strip()
+            if re.search('^#', line) is not None:
+                Port_cfg = collections.namedtuple('Port_cfg', line.split()[1:])
+                break
+        f.close()
+        f = open(port_config_file)
+        _port_cfgs = [Port_cfg(*tuple((line.strip().split())))
+                           for line in f if re.search('^#', line) is None]
+        f.close()
+
         # Initialize EEPROM
         self._eeprom = Eeprom()
         # Initialize FAN
@@ -39,8 +68,8 @@ class Chassis(ChassisBase):
             thermal = Thermal(index)
             self._thermal_list.append(thermal)
         # Initialize SFP
-        for index in range(0, NUM_PORT):
-            sfp = Sfp(index + 1)
+        for port_cfg in _port_cfgs:
+            sfp = Sfp(int(port_cfg.index))
             self._sfp_list.append(sfp)
         # Initialize PSU
         for index in range(0, NUM_PSU):
