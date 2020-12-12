@@ -15,6 +15,10 @@ RUN apt-get update         && \
         python-setuptools     \
         python3-setuptools
 
+{% if ( CONFIGURED_ARCH == "armhf" or CONFIGURED_ARCH == "arm64" ) %}
+RUN apt-get install -y zlib1g-dev libxslt1-dev libxml2-dev
+{% endif %}
+
 RUN pip3 install --upgrade pip
 RUN pip2 install --upgrade pip
 RUN apt-get purge -y python-pip python3-pip
