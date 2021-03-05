@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #############################################################################
 # Centec E550-24X8Y2C
 #
@@ -8,9 +10,17 @@
 #############################################################################
 
 try:
+    import binascii
+    import time
+    import optparse
+    import warnings
+    import os
+    import sys
+    import subprocess
+    from sonic_eeprom import eeprom_base
     from sonic_eeprom import eeprom_tlvinfo
 except ImportError as e:
-    raise ImportError(str(e) + "- required module not found")
+    raise ImportError (str(e) + "- required module not found")
 
 
 class board(eeprom_tlvinfo.TlvInfoDecoder):
