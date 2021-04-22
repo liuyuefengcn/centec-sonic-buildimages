@@ -78,9 +78,11 @@ popd
 ## Build a basic Debian system by debootstrap
 echo '[INFO] Debootstrap...'
 if [[ $CONFIGURED_ARCH == armhf || $CONFIGURED_ARCH == arm64 ]]; then
-    # qemu arm bin executable for cross-building
-    sudo mkdir -p $FILESYSTEM_ROOT/usr/bin
-    sudo cp /usr/bin/qemu*static $FILESYSTEM_ROOT/usr/bin || true
+    if [ $MULTIARCH_QEMU_ENVIRON == y ]; then
+        # qemu arm bin executable for cross-building
+        sudo mkdir -p $FILESYSTEM_ROOT/usr/bin
+        sudo cp /usr/bin/qemu*static $FILESYSTEM_ROOT/usr/bin || true
+    fi
     sudo http_proxy=$http_proxy debootstrap --variant=minbase --arch $CONFIGURED_ARCH stretch $FILESYSTEM_ROOT http://deb.debian.org/debian
 else
     sudo http_proxy=$http_proxy debootstrap --variant=minbase --arch $CONFIGURED_ARCH stretch $FILESYSTEM_ROOT http://debian-archive.trafficmanager.net/debian
@@ -546,7 +548,7 @@ sudo LANG=C chroot $FILESYSTEM_ROOT fuser -km /proc || true
 sleep 15
 sudo umount $FILESYSTEM_ROOT/proc || true
 
-if [[ $CONFIGURED_ARCH == armhf || $CONFIGURED_ARCH == arm64 ]]; then
+if [ $MULTIARCH_QEMU_ENVIRON == y ]; then
     # Remove qemu arm bin executable used for cross-building
     sudo rm -f $FILESYSTEM_ROOT/usr/bin/qemu*static || true
     DOCKERFS_PATH=../dockerfs/
