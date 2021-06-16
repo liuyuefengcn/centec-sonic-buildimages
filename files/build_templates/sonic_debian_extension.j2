@@ -505,6 +505,12 @@ sudo cp {{src}} $FILESYSTEM_ROOT/{{dst}}
 {% endif -%}
 {% endfor -%}
 
+{% if sonic_asic_platform == "centec" %}
+if [[ $CONFIGURED_ARCH == arm64 ]]; then
+    sudo rm $FILESYSTEM_ROOT/etc/monit/conf.d/* -rf
+fi
+{% endif %}
+
 {% if sonic_asic_platform == "mellanox" %}
 sudo mkdir -p $FILESYSTEM_ROOT/etc/mlnx/
 sudo cp $files_path/$MLNX_SPC_FW_FILE $FILESYSTEM_ROOT/etc/mlnx/fw-SPC.mfa
