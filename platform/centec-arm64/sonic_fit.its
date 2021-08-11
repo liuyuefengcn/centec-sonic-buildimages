@@ -38,7 +38,7 @@
 		};
 		ctc_fdt {
 			description = "dtb for tm_ctc5236";			
-			data = /incbin/("./e530-ctc5236.dtb");			
+			data = /incbin/("/usr/lib/linux-image-4.9.0-14-2-arm64/centec/e530-ctc5236.dtb");			
 			type = "flat_dt";
 			arch = "arm64";			
 			os = "linux";			
