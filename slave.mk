@@ -95,7 +95,7 @@ ifeq ($(SONIC_INCLUDE_SYSTEM_TELEMETRY),y)
 INCLUDE_SYSTEM_TELEMETRY = y
 endif
 
-ifneq (,$(filter $(CONFIGURED_ARCH), armhf arm64))
+ifneq (,$(filter $(CONFIGURED_ARCH), armhf))
     # Workaround: Force disable Telmetry for ARM, will be removed after fixing issue
     # Issue: qemu crashes when it uses "go get url"
     # Qemu Support: https://bugs.launchpad.net/qemu/+bug/1838946
