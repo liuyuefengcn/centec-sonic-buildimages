@@ -1,0 +1,201 @@
+{
+    "GLOBAL_MEDIA_SETTINGS": {
+        "0-7": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0"
+                },
+                "pre2": {
+                    "lane0":"0"
+                },
+                "main": {
+                    "lane0":"2c"
+                },
+                "post1": {
+                    "lane0":"-c"
+                },
+                "post2": {
+                    "lane0":"-2"
+                }
+            }
+        },
+        "8-19": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0"
+                },
+                "pre2": {
+                    "lane0":"0"
+                },
+                "main": {
+                    "lane0":"28"
+                },
+                "post1": {
+                    "lane0":"-8"
+                },
+                "post2": {
+                    "lane0":"-2"
+                }
+            }
+        },
+        "20-27": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0"
+                },
+                "pre2": {
+                    "lane0":"0"
+                },
+                "main": {
+                    "lane0":"24"
+                },
+                "post1": {
+                    "lane0":"-6"
+                },
+                "post2": {
+                    "lane0":"-2"
+                }
+            }
+        },
+        "28-39": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0"
+                },
+                "pre2": {
+                    "lane0":"0"
+                },
+                "main": {
+                    "lane0":"28"
+                },
+                "post1": {
+                    "lane0":"-8"
+                },
+                "post2": {
+                    "lane0":"-2"
+                }
+            }
+        },
+        "40-47": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0"
+                },
+                "pre2": {
+                    "lane0":"0"
+                },
+                "main": {
+                    "lane0":"2c"
+                },
+                "post1": {
+                    "lane0":"-c"
+                },
+                "post2": {
+                    "lane0":"-2"
+                }
+            }
+        },
+        "48-55": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0",
+                    "lane1":"0",
+                    "lane2":"0",
+                    "lane3":"0"
+                },
+                "pre2": {
+                    "lane0":"0",
+                    "lane1":"0",
+                    "lane2":"0",
+                    "lane3":"0"
+                },
+                "main": {
+                    "lane0":"24",
+                    "lane1":"24",
+                    "lane2":"24",
+                    "lane3":"24"
+                },
+                "post1": {
+                    "lane0":"-6",
+                    "lane1":"-6",
+                    "lane2":"-6",
+                    "lane3":"-6"
+                },
+                "post2": {
+                    "lane0":"-2",
+                    "lane1":"-2",
+                    "lane2":"-2",
+                    "lane3":"-2"
+                }
+            }
+        },
+        "56-57": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0",
+                    "lane1":"0",
+                    "lane2":"0",
+                    "lane3":"0"
+                },
+                "pre2": {
+                    "lane0":"0",
+                    "lane1":"0",
+                    "lane2":"0",
+                    "lane3":"0"
+                },
+                "main": {
+                    "lane0":"28",
+                    "lane1":"28",
+                    "lane2":"28",
+                    "lane3":"28"
+                },
+                "post1": {
+                    "lane0":"-8",
+                    "lane1":"-8",
+                    "lane2":"-8",
+                    "lane3":"-8"
+                },
+                "post2": {
+                    "lane0":"-2",
+                    "lane1":"-2",
+                    "lane2":"-2",
+                    "lane3":"-2"
+                }
+            }
+        },
+        "58-59": {
+            "Default": {
+                "pre1": {
+                    "lane0":"0",
+                    "lane1":"0",
+                    "lane2":"0",
+                    "lane3":"0"
+                },
+                "pre2": {
+                    "lane0":"0",
+                    "lane1":"0",
+                    "lane2":"0",
+                    "lane3":"0"
+                },
+                "main": {
+                    "lane0":"2c",
+                    "lane1":"2c",
+                    "lane2":"2c",
+                    "lane3":"2c"
+                },
+                "post1": {
+                    "lane0":"-c",
+                    "lane1":"-c",
+                    "lane2":"-c",
+                    "lane3":"-c"
+                },
+                "post2": {
+                    "lane0":"-2",
+                    "lane1":"-2",
+                    "lane2":"-2",
+                    "lane3":"-2"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,3 @@
+ctc8180/modules/sonic_platform-1.0-py2-none-any.whl usr/share/sonic/device/x86_64-ieu_ctc8180-r0
+ctc8180/modules/sonic_platform-1.0-py3-none-any.whl usr/share/sonic/device/x86_64-ieu_ctc8180-r0
+ctc8180/service/release.py usr/local/lib/python2.7/dist-packages

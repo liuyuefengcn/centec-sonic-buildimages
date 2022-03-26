@@ -1,0 +1,2 @@
+systemctl enable ieu_ctc8180_platform.service
+systemctl start ieu_ctc8180_platform.service
