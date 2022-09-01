@@ -92,7 +92,7 @@ sudo pip3 install j2cli
 ## Clone or fetch the code repository with all git submodules
 To clone the code repository recursively, assuming git version 1.9 or newer:
 
-    git clone https://github.com/Azure/sonic-buildimage.git
+    git clone https://github.com/CentecNetworks/sonic-buildimage.git
 
 ## Usage
 
@@ -120,11 +120,11 @@ To build SONiC installer image and docker images, run the following commands:
 
  The supported ASIC vendors are:
 
+- PLATFORM=centec
 - PLATFORM=broadcom
 - PLATFORM=marvell
 - PLATFORM=mellanox
 - PLATFORM=cavium
-- PLATFORM=centec
 - PLATFORM=nephos
 - PLATFORM=innovium
 - PLATFORM=p4
@@ -151,7 +151,7 @@ To build Arm32 bit for (ARMHF) platform
 
 
 
-To build Arm64 bit for platform
+To build ARM64 bit for platform
 
     # Execute make configure once to configure ASIC and ARCH
 
@@ -159,7 +159,7 @@ To build Arm64 bit for platform
 
     # example:
 
-    make configure PLATFORM=marvell-arm64 PLATFORM_ARCH=arm64
+    make configure PLATFORM=centec-arm64 PLATFORM_ARCH=arm64
 
 
  **NOTE**:
